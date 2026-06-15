@@ -8,7 +8,7 @@
         body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
         h2, h3 { text-align: center; color: #333; margin-top: 5px; }
         .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        input, button, select { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
         .time-row { display: flex; gap: 10px; }
         .time-row div { width: 50%; }
         button { background-color: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
@@ -27,20 +27,22 @@
         .action-btn { float: left; width: auto; padding: 4px 8px; margin: 0 2px; font-size: 13px; border-radius: 4px; }
         .del-btn { background: #dc3545; }
         .edit-btn { background: #ffc107; color: black; }
+        .view-btn { background: #17a2b8; color: white; width: auto; display: inline-block; padding: 4px 10px; font-size: 13px; border-radius: 4px; margin-top: 5px; }
+        .statement-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; background: white; }
+        .statement-table th, .statement-table td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+        .statement-table th { background-color: #e2e3e5; }
     </style>
 </head>
 <body>
 
     <h2>🏗️ يومية الورشة</h2>
 
-    <!-- اختيار اليوم ووصفه -->
     <div class="card">
         <h3>📅 اختر اليوم</h3>
         <input type="date" id="currentDate" class="date-picker" onchange="loadDayData()">
         <input type="text" id="dayNote" class="special-day" placeholder="وصف اليوم (مثال: صبة باطون...)" onchange="saveDayNote()">
     </div>
 
-    <!-- قسم العمال -->
     <div class="card" id="workerSection">
         <h3>👷 إضافة عامل أو سلفة</h3>
         <input type="text" id="workerName" list="workerList" placeholder="اسم العامل" oninput="autofillWorker()">
@@ -61,7 +63,6 @@
         <button onclick="addWorker()">➕ إضافة لليومية</button>
     </div>
 
-    <!-- قسم المواد -->
     <div class="card" id="materialSection">
         <h3>🧱 مواد ومصاريف اليوم</h3>
         <input type="text" id="materialName" placeholder="اسم المادة (مثال: باطون، رمل، ديزل)">
@@ -69,7 +70,6 @@
         <button onclick="addMaterial()" style="background-color: #ffc107; color: black;">➕ إضافة مصروف</button>
     </div>
 
-    <!-- تقرير اليوم -->
     <div class="card">
         <h3>📊 ملخص اليوم المحدد</h3>
         <div id="dailyReport" class="report-box">
@@ -78,14 +78,12 @@
         <button class="whatsapp-btn" onclick="shareWhatsApp()">📲 إرسال تقرير اليوم (واتساب)</button>
     </div>
 
-    <!-- دفتر الديون الشامل -->
     <div class="card" style="border: 2px solid #dc3545;">
         <h3 style="color: #dc3545;">📒 دفتر ديون العمال (الحساب الختامي)</h3>
         <button style="background-color: #dc3545;" onclick="showDebts()">👁️ عرض الحساب الشامل لكل العمال</button>
         <div id="debtReport" class="report-box" style="display: none; background-color: #f8d7da;"></div>
     </div>
 
-    <!-- حساب فترة محددة والنسخ الاحتياطي -->
     <div class="card" style="border: 2px solid #28a745;">
         <h3>💰 جرد فترة والنسخ الاحتياطي</h3>
         <div class="time-row">
@@ -105,11 +103,9 @@
     </div>
 
     <script>
-        // 1. جلب البيانات القديمة
         let allData = JSON.parse(localStorage.getItem('workshopDiary')) || {};
         let savedWorkersProfiles = JSON.parse(localStorage.getItem('savedWorkersProfiles')) || {}; 
 
-        // 2. دالة تنظيف وتصليح البيانات القديمة (هذا هو الحل الجذري للمشكلة)
         function sanitizeData() {
             let changed = false;
             for (let d in allData) {
@@ -124,7 +120,6 @@
             }
             if (changed) { saveData(); }
         }
-        // تشغيل التنظيف فوراً
         sanitizeData();
 
         function getTodayString() {
@@ -155,7 +150,6 @@
             }
         }
 
-        // دالة آمنة للتأكد إن اليوم جاهز قبل ما نضيف عليه إشي
         function getSafeDate() {
             let date = document.getElementById("currentDate").value;
             if(!date) {
@@ -180,7 +174,6 @@
             saveData();
         }
 
-        // طريقة حساب الساعات الجديدة والمحمية
         function calculateHours(start, end, isHafsaka) {
             if(!start || !end) return 0;
             try {
@@ -190,9 +183,7 @@
                 if(diff < 0) diff += 24; 
                 if(isHafsaka) diff -= 0.5; 
                 return diff > 0 ? parseFloat(diff.toFixed(2)) : 0;
-            } catch(e) {
-                return 0;
-            }
+            } catch(e) { return 0; }
         }
 
         function getWorkerBalance(name) {
@@ -226,9 +217,7 @@
 
                 let isDuplicate = allData[date].workers.some(w => w.name === name);
                 if (isDuplicate) {
-                    if(!confirm(`⚠️ العامل "${name}" مسجل اليوم بالفعل!\n\nمتأكد بدك تضيفه كمان مرة؟`)) {
-                        return; 
-                    }
+                    if(!confirm(`⚠️ العامل "${name}" مسجل اليوم بالفعل!\n\nمتأكد بدك تضيفه كمان مرة؟`)) { return; }
                 }
 
                 let hours = calculateHours(start, end, hasHafsaka);
@@ -244,9 +233,7 @@
                 
                 clearWorkerInputs();
                 renderDailyReport();
-            } catch (err) {
-                alert("حدث خطأ أثناء الإضافة: " + err.message);
-            }
+            } catch (err) { alert("حدث خطأ أثناء الإضافة: " + err.message); }
         }
 
         function clearWorkerInputs() {
@@ -277,8 +264,6 @@
 
         function deleteItem(type, index) {
             let date = getSafeDate();
-            if(!allData[date][type] || !allData[date][type][index]) return;
-            
             if(confirm("متأكد بدك تحذف هذا العنصر؟")) {
                 allData[date][type].splice(index, 1);
                 saveData();
@@ -288,10 +273,7 @@
 
         function editItem(type, index) {
             let date = getSafeDate();
-            if(!allData[date][type] || !allData[date][type][index]) return;
-            
             let item = allData[date][type][index];
-
             if(type === 'workers') {
                 document.getElementById("workerName").value = item.name;
                 document.getElementById("workerPhone").value = item.phone || "";
@@ -304,7 +286,6 @@
                 document.getElementById("materialName").value = item.name;
                 document.getElementById("materialCost").value = item.cost;
             }
-
             allData[date][type].splice(index, 1);
             saveData();
             renderDailyReport();
@@ -375,19 +356,21 @@
                     });
                 }
             }
-            let html = "<h4>تفصيل حسابات العمال من أول يوم لليوم:</h4>";
+            let html = "<h4>تفصيل حسابات العمال الشاملة:</h4>";
             let hasData = false;
             for(let name in balances) {
                 hasData = true;
                 let debt = balances[name].total - balances[name].paid;
                 let color = debt > 0 ? 'red' : (debt < 0 ? 'blue' : 'green');
-                let debtText = debt > 0 ? `إله ديون: ${debt}` : (debt < 0 ? `ماخذ زيادة/سلفة: ${Math.abs(debt)}` : `حسابه مصفر`);
+                let debtText = debt > 0 ? `إله ديون: ${debt}` : (debt < 0 ? `ماخذ زيادة: ${Math.abs(debt)}` : `حسابه مصفر`);
                 
                 html += `
-                    <div style="background:#fff; padding:8px; border:1px solid #f5c6cb; border-radius:5px; margin-bottom:5px;">
-                        <b style="font-size:18px;">${name}</b>
-                        <br>إجمالي شغله: ${balances[name].total} | إجمالي استلامه: ${balances[name].paid}
+                    <div style="background:#fff; padding:10px; border:1px solid #f5c6cb; border-radius:5px; margin-bottom:8px;">
+                        <b style="font-size:18px;">${name}</b> 
+                        <br>إجمالي الشغل: ${balances[name].total} | إجمالي المستلم: ${balances[name].paid}
                         <br><b style="color:${color}">${debtText}</b>
+                        <br><button class="view-btn" onclick="toggleStatement('${name}')">عرض كشف الساعات والأيام 📄</button>
+                        <div id="statement-${name.replace(/\s+/g, '-')}" style="display:none; margin-top:10px;"></div>
                     </div>`;
             }
             if(!hasData) html += "<p>لا يوجد عمال مسجلين بعد.</p>";
@@ -396,23 +379,71 @@
             box.innerHTML = html;
         }
 
+        // دالة جديدة كلياً لإنشاء وعرض كشف الأيام والساعات لعامل محدد
+        function toggleStatement(workerName) {
+            let id = "statement-" + workerName.replace(/\s+/g, '-');
+            let div = document.getElementById(id);
+            if(div.style.display === "block") {
+                div.style.display = "none";
+                return;
+            }
+            
+            let tableHTML = `
+                <table class="statement-table">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الوصف</th>
+                            <th>الساعات</th>
+                            <th>اليومية</th>
+                            <th>المدفوع</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            let hasRecords = false;
+            // ترتيب التواريخ من الأحدث للأقدم
+            let sortedDates = Object.keys(allData).sort().reverse();
+
+            sortedDates.forEach(date => {
+                if(allData[date] && Array.isArray(allData[date].workers)) {
+                    allData[date].workers.forEach(w => {
+                        if(w.name === workerName) {
+                            hasRecords = true;
+                            let dayNote = allData[date].note || "-";
+                            tableHTML += `
+                                <tr>
+                                    <td>${date}</td>
+                                    <td>${dayNote}</td>
+                                    <td>${w.hours}</td>
+                                    <td>${w.total}</td>
+                                    <td style="color:green; font-weight:bold;">${w.paid}</td>
+                                </tr>`;
+                        }
+                    });
+                }
+            });
+
+            tableHTML += `</tbody></table>`;
+            if(!hasRecords) tableHTML = "<p style='font-size:12px; color:#666;'>لا توجد تفاصيل أيام مسجلة لهذا العامل.</p>";
+            
+            div.innerHTML = tableHTML;
+            div.style.display = "block";
+        }
+
         function shareWhatsApp() {
             let date = getSafeDate();
             let data = allData[date];
             if (data.workers.length === 0 && data.materials.length === 0) { alert("لا توجد بيانات لمشاركتها!"); return; }
-
             let text = `📊 *تقرير يومية الورشة* - ${date}%0A`;
             if(data.note) text += `📌 *ملاحظة:* ${data.note}%0A%0A`;
-            
             text += "👷 *العمال:*%0A";
             data.workers.forEach(w => { 
                 let overall = getWorkerBalance(w.name);
                 text += `- ${w.name}: ${w.hours} ساعات | الدفعة: ${w.paid} | رصيده الكلي المتبقي: ${overall}%0A`; 
             });
-
             text += "%0A🧱 *المواد:*%0A";
             data.materials.forEach(m => { text += `- ${m.name}: ${m.cost}%0A`; });
-
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
 
@@ -420,10 +451,8 @@
             let start = document.getElementById("startDate").value;
             let end = document.getElementById("endDate").value;
             if(!start || !end) { alert("حدد تاريخ البداية والنهاية!"); return; }
-
             let totalWorkersPaid = 0; let totalWorkersCost = 0; let totalMatCost = 0;
             let specialDaysHTML = "<ul>";
-
             for (let date in allData) {
                 if (date >= start && date <= end) {
                     if(allData[date]) {
@@ -439,7 +468,6 @@
                 }
             }
             specialDaysHTML += "</ul>";
-
             let resHTML = `
                 <h4>📈 تقرير الجرد للفترة المحددة:</h4>
                 <p>💸 مجموع النقد اللي اندفع للعمال: <b>${totalWorkersPaid}</b></p>
@@ -449,7 +477,6 @@
                 <h4 style="color:blue;">💰 التكلفة الكلية للورشة (مواد + أجور): ${totalWorkersCost + totalMatCost}</h4>
             `;
             if(specialDaysHTML !== "<ul></ul>") { resHTML += `<hr><h5>🗓️ أيام مميزة:</h5>${specialDaysHTML}`; }
-
             let box = document.getElementById("periodReport");
             box.style.display = "block";
             box.innerHTML = resHTML;
@@ -458,7 +485,6 @@
         function exportToExcel() {
             let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
             csvContent += "التاريخ,النوع,الاسم/الوصف,رقم الهاتف,ساعات العمل,التكلفة اليومية,المدفوع اليوم,ديون اليوم فقط\n";
-            
             for (let date in allData) {
                 if(allData[date]) {
                     let d = allData[date];
@@ -476,7 +502,6 @@
                     }
                 }
             }
-            
             let encodedUri = encodeURI(csvContent);
             let link = document.createElement("a");
             link.setAttribute("href", encodedUri);
@@ -486,10 +511,7 @@
         }
 
         function backupDatabase() {
-            let fullBackup = {
-                diary: allData,
-                profiles: savedWorkersProfiles
-            };
+            let fullBackup = { diary: allData, profiles: savedWorkersProfiles };
             let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup));
             let dlAnchorElem = document.createElement('a');
             dlAnchorElem.setAttribute("href", dataStr);
@@ -511,16 +533,12 @@
                         localStorage.setItem('savedWorkersProfiles', JSON.stringify(contents.profiles));
                         allData = contents.diary;
                         savedWorkersProfiles = contents.profiles;
-                        sanitizeData(); // تنظيف إضافي لضمان سلامة الملف المرفوع
+                        sanitizeData();
                         updateWorkerList();
                         loadDayData();
                         alert("✅ تم استرجاع البيانات بنجاح!");
-                    } else {
-                        alert("❌ ملف النسخة الاحتياطية غير صحيح.");
-                    }
-                } catch(err) {
-                    alert("❌ حدث خطأ أثناء قراءة الملف.");
-                }
+                    } else { alert("❌ ملف النسخة الاحتياطية غير صحيح."); }
+                } catch(err) { alert("❌ حدث خطأ أثناء قراءة الملف."); }
             };
             reader.readAsText(file);
         }
