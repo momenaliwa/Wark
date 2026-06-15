@@ -3,166 +3,337 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة الورشة الذكية</title>
+    <title>يومية الورشة الشاملة</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
-        h2 { text-align: center; color: #333; }
+        h2, h3 { text-align: center; color: #333; margin-top: 5px; }
         .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         input, button { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        .time-row { display: flex; gap: 10px; }
+        .time-row div { width: 50%; }
         button { background-color: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
         button:hover { background-color: #0056b3; }
-        button.save-btn { background-color: #28a745; }
-        button.clear-btn { background-color: #dc3545; margin-top: 15px; }
         button.whatsapp-btn { background-color: #25d366; margin-top: 10px; }
+        button.excel-btn { background-color: #17a2b8; margin-top: 10px; }
+        .checkbox-container { display: flex; align-items: center; font-size: 16px; margin-bottom: 10px; font-weight: bold; color: #d32f2f; }
+        .checkbox-container input { width: auto; margin-left: 10px; width: 22px; height: 22px; }
         .report-box { background: #e9ecef; padding: 10px; border-radius: 6px; margin-top: 10px; line-height: 1.6; }
         hr { border: 1px solid #ddd; margin: 15px 0; }
+        .date-picker { background-color: #e3f2fd; border-color: #90caf9; font-weight: bold; }
+        .special-day { border-color: #ff9800; background-color: #fff3e0; }
+        .phone-text { font-size: 13px; color: #555; }
     </style>
 </head>
 <body>
 
-    <h2>🏗️ إدارة الورشة</h2>
-    <p style="text-align:center; font-weight:bold; color:#555;" id="currentDate"></p>
+    <h2>🏗️ يومية الورشة</h2>
 
     <div class="card">
-        <h3>👷 إضافة عامل</h3>
-        <input type="text" id="workerName" placeholder="اسم العامل">
-        <input type="number" id="workerHours" placeholder="عدد الساعات (مثال: 8)">
-        <input type="number" id="hourlyRate" placeholder="سعر الساعة">
-        <input type="number" id="paidAmount" placeholder="المبلغ اللي دفعته له اليوم">
-        <button onclick="addWorker()">➕ إضافة العامل</button>
+        <h3>📅 اختر اليوم</h3>
+        <input type="date" id="currentDate" class="date-picker" onchange="loadDayData()">
+        <input type="text" id="dayNote" class="special-day" placeholder="وصف اليوم (مثال: صبة باطون...)" onchange="saveDayNote()">
     </div>
 
     <div class="card">
-        <h3>🧱 مصاريف المواد والمكائن</h3>
-        <input type="text" id="materialName" placeholder="اسم المادة أو الماكينة">
-        <input type="number" id="materialCost" placeholder="التكلفة">
-        <button onclick="addMaterial()" style="background-color: #ffc107; color: black;">➕ إضافة التكلفة</button>
-    </div>
-
-    <div class="card">
-        <h3>📊 ملخص اليوم</h3>
-        <button class="save-btn" onclick="generateReport()">🔄 تحديث وعرض التقرير</button>
-        <div id="reportArea" class="report-box">
-            <i>اضغط على "تحديث وعرض التقرير" لرؤية الحسابات...</i>
-        </div>
+        <h3>👷 إضافة عامل أو سلفة</h3>
+        <input type="text" id="workerName" list="workerList" placeholder="اسم العامل" oninput="autofillWorker()">
+        <datalist id="workerList"></datalist>
         
-        <button class="whatsapp-btn" onclick="shareWhatsApp()">📲 إرسال التقرير عبر واتساب</button>
-        <button class="clear-btn" onclick="clearData()">🗑️ إنهاء اليوم ومسح البيانات</button>
+        <input type="tel" id="workerPhone" placeholder="رقم الهاتف (اختياري)">
+        
+        <div class="time-row">
+            <div><label>ساعة إجى:</label><input type="time" id="startTime"></div>
+            <div><label>ساعة روّح:</label><input type="time" id="endTime"></div>
+        </div>
+        <div class="checkbox-container">
+            <input type="checkbox" id="hafsaka">
+            <label>☑️ خصم هفسكا (نصف ساعة)</label>
+        </div>
+        <input type="number" id="hourlyRate" placeholder="سعر الساعة">
+        <input type="number" id="paidAmount" placeholder="المبلغ اللي اندفعله اليوم (أو سلفة)">
+        <button onclick="addWorker()">➕ إضافة لليومية</button>
+    </div>
+
+    <div class="card">
+        <h3>🧱 مواد ومصاريف اليوم</h3>
+        <input type="text" id="materialName" placeholder="اسم المادة (مثال: باطون، رمل، ديزل)">
+        <input type="number" id="materialCost" placeholder="التكلفة">
+        <button onclick="addMaterial()" style="background-color: #ffc107; color: black;">➕ إضافة مصروف</button>
+    </div>
+
+    <div class="card">
+        <h3>📊 ملخص اليوم المحدد</h3>
+        <div id="dailyReport" class="report-box">
+            <i>اختر يوماً لرؤية البيانات...</i>
+        </div>
+        <button class="whatsapp-btn" onclick="shareWhatsApp()">📲 إرسال تقرير اليوم (واتساب)</button>
+    </div>
+
+    <div class="card" style="border: 2px solid #28a745;">
+        <h3>💰 جرد فترة والنسخ الاحتياطي</h3>
+        <div class="time-row">
+            <div><label>من تاريخ:</label><input type="date" id="startDate"></div>
+            <div><label>إلى تاريخ:</label><input type="date" id="endDate"></div>
+        </div>
+        <button style="background-color: #28a745;" onclick="calculatePeriod()">🔍 احسب الفترة</button>
+        <div id="periodReport" class="report-box" style="display: none; background-color: #d4edda;"></div>
+        
+        <hr>
+        <button class="excel-btn" onclick="exportToExcel()">💾 تنزيل كل البيانات (Excel)</button>
     </div>
 
     <script>
-        // إظهار تاريخ اليوم
-        document.getElementById("currentDate").innerText = "تاريخ اليوم: " + new Date().toLocaleDateString('ar-EG');
+        function getTodayString() {
+            let today = new Date();
+            let dd = String(today.getDate()).padStart(2, '0');
+            let mm = String(today.getMonth() + 1).padStart(2, '0');
+            let yyyy = today.getFullYear();
+            return yyyy + '-' + mm + '-' + dd;
+        }
 
-        // جلب البيانات المحفوظة في الهاتف أو إنشاء قوائم فارغة
-        let workers = JSON.parse(localStorage.getItem('workers')) || [];
-        let materials = JSON.parse(localStorage.getItem('materials')) || [];
+        document.getElementById("currentDate").value = getTodayString();
+        
+        // قواعد البيانات المحلية
+        let allData = JSON.parse(localStorage.getItem('workshopDiary')) || {};
+        let savedWorkersProfiles = JSON.parse(localStorage.getItem('savedWorkersProfiles')) || {}; // ذاكرة العمال
+
+        // تحديث قائمة الاقتراحات بأسماء العمال
+        function updateWorkerList() {
+            let dataList = document.getElementById("workerList");
+            dataList.innerHTML = "";
+            for (let name in savedWorkersProfiles) {
+                let option = document.createElement("option");
+                option.value = name;
+                dataList.appendChild(option);
+            }
+        }
+
+        // التعبئة التلقائية عند اختيار اسم عامل محفوظ
+        function autofillWorker() {
+            let name = document.getElementById("workerName").value;
+            if (savedWorkersProfiles[name]) {
+                document.getElementById("hourlyRate").value = savedWorkersProfiles[name].rate || "";
+                document.getElementById("workerPhone").value = savedWorkersProfiles[name].phone || "";
+            }
+        }
+
+        function loadDayData() {
+            let date = document.getElementById("currentDate").value;
+            if (!allData[date]) {
+                allData[date] = { note: "", workers: [], materials: [] }; 
+            }
+            if (!allData[date].materials) allData[date].materials = [];
+            
+            document.getElementById("dayNote").value = allData[date].note;
+            renderDailyReport();
+        }
+
+        function saveDayNote() {
+            let date = document.getElementById("currentDate").value;
+            allData[date].note = document.getElementById("dayNote").value;
+            saveData();
+        }
+
+        function calculateHours(start, end, isHafsaka) {
+            if(!start || !end) return 0;
+            let startDate = new Date(`2000-01-01T${start}`);
+            let endDate = new Date(`2000-01-01T${end}`);
+            let diff = (endDate - startDate) / (1000 * 60 * 60);
+            if(diff < 0) diff += 24; 
+            if(isHafsaka) diff -= 0.5; 
+            return diff > 0 ? diff.toFixed(2) : 0;
+        }
 
         function addWorker() {
+            let date = document.getElementById("currentDate").value;
             let name = document.getElementById("workerName").value;
-            let hours = parseFloat(document.getElementById("workerHours").value) || 0;
+            let phone = document.getElementById("workerPhone").value;
+            let start = document.getElementById("startTime").value;
+            let end = document.getElementById("endTime").value;
+            let hasHafsaka = document.getElementById("hafsaka").checked;
             let rate = parseFloat(document.getElementById("hourlyRate").value) || 0;
             let paid = parseFloat(document.getElementById("paidAmount").value) || 0;
 
             if(name.trim() === "") { alert("الرجاء إدخال اسم العامل"); return; }
 
+            let hours = calculateHours(start, end, hasHafsaka);
             let total = hours * rate;
             let debt = total - paid;
 
-            workers.push({ name, hours, total, paid, debt });
-            localStorage.setItem('workers', JSON.stringify(workers));
+            // إضافة العامل ليومية اليوم
+            allData[date].workers.push({ name, phone, start, end, hasHafsaka, hours, rate, total, paid, debt });
+            saveData();
+
+            // حفظ أو تحديث ملف العامل في الذاكرة (للتعبئة التلقائية المرة الجاية)
+            savedWorkersProfiles[name] = { rate: rate, phone: phone };
+            localStorage.setItem('savedWorkersProfiles', JSON.stringify(savedWorkersProfiles));
+            updateWorkerList();
             
-            alert("تم إضافة العامل بنجاح!");
-            // تفريغ الخانات بعد الإضافة
+            // تفريغ الخانات
             document.getElementById("workerName").value = "";
-            document.getElementById("workerHours").value = "";
+            document.getElementById("workerPhone").value = "";
+            document.getElementById("startTime").value = "";
+            document.getElementById("endTime").value = "";
+            document.getElementById("hafsaka").checked = false;
             document.getElementById("hourlyRate").value = "";
             document.getElementById("paidAmount").value = "";
-            generateReport(); // تحديث التقرير تلقائياً
+            
+            renderDailyReport();
         }
 
         function addMaterial() {
+            let date = document.getElementById("currentDate").value;
             let name = document.getElementById("materialName").value;
             let cost = parseFloat(document.getElementById("materialCost").value) || 0;
 
             if(name.trim() === "") { alert("الرجاء إدخال اسم المادة"); return; }
 
-            materials.push({ name, cost });
-            localStorage.setItem('materials', JSON.stringify(materials));
+            allData[date].materials.push({ name, cost });
+            saveData();
 
-            alert("تم إضافة المصروف بنجاح!");
             document.getElementById("materialName").value = "";
             document.getElementById("materialCost").value = "";
-            generateReport(); // تحديث التقرير تلقائياً
+            
+            renderDailyReport();
         }
 
-        function generateReport() {
-            let reportHTML = "<h4>العمال:</h4>";
-            let totalWorkersCost = 0;
+        function deleteItem(type, index) {
+            let date = document.getElementById("currentDate").value;
+            if(confirm("متأكد بدك تحذف هذا العنصر؟")) {
+                allData[date][type].splice(index, 1);
+                saveData();
+                renderDailyReport();
+            }
+        }
+
+        function renderDailyReport() {
+            let date = document.getElementById("currentDate").value;
+            let workers = allData[date].workers;
+            let materials = allData[date].materials;
+            let note = allData[date].note;
             
-            if (workers.length === 0) { reportHTML += "<p>لا يوجد عمال مسجلين اليوم.</p>"; }
-            
-            workers.forEach((w, index) => {
-                reportHTML += `<p><b>${index + 1}. ${w.name}</b>: اشتغل ${w.hours} ساعات | أجرته: ${w.total} | اندفعله: ${w.paid} | <b>الباقي له: <span style="color:red">${w.debt}</span></b></p>`;
-                totalWorkersCost += w.total;
+            let html = note ? `<p style="color:#ff9800; font-weight:bold;">📌 ${note}</p><hr>` : '';
+            let dayTotalPaid = 0;
+            let dayTotalCost = 0;
+
+            html += `<h4>👷 العمال:</h4>`;
+            if (workers.length === 0) html += "<p>فش عمال مسجلين.</p>";
+            workers.forEach((w, i) => {
+                let phoneDisplay = w.phone ? `<span class="phone-text">📞 ${w.phone}</span>` : '';
+                html += `
+                    <div style="background:#fff; padding:8px; border:1px solid #ccc; border-radius:5px; margin-bottom:5px;">
+                        <b>${i+1}. ${w.name}</b> ${phoneDisplay} <button onclick="deleteItem('workers', ${i})" style="float:left; width:auto; padding:2px 8px; background:red; margin:0;">حذف</button>
+                        <br><small>دوام: ${w.start || 'بدون'} لـ ${w.end || 'بدون'} ${w.hasHafsaka ? '<b>(مخصوم هفسكا)</b>' : ''}</small>
+                        <br>اشتغل <b>${w.hours}</b> ساعات × ${w.rate}/ساعة
+                        <br>تكلفته: ${w.total} | اندفعله: <span style="color:green">${w.paid}</span> | ديون: <span style="color:red">${w.debt}</span>
+                    </div>`;
+                dayTotalPaid += w.paid;
+                dayTotalCost += w.total;
             });
 
-            reportHTML += "<hr><h4>المواد والمصاريف الأخرى:</h4>";
-            let totalMaterialsCost = 0;
-            
-            if (materials.length === 0) { reportHTML += "<p>لا يوجد مواد مسجلة اليوم.</p>"; }
-
-            materials.forEach((m, index) => {
-                reportHTML += `<p><b>${index + 1}. ${m.name}</b>: التكلفة ${m.cost}</p>`;
-                totalMaterialsCost += m.cost;
+            html += `<hr><h4>🧱 المواد والمصاريف:</h4>`;
+            let matTotalCost = 0;
+            if (materials.length === 0) html += "<p>فش مصاريف مسجلة.</p>";
+            materials.forEach((m, i) => {
+                html += `
+                    <div style="background:#fff; padding:8px; border:1px solid #ccc; border-radius:5px; margin-bottom:5px;">
+                        <b>${i+1}. ${m.name}</b> <button onclick="deleteItem('materials', ${i})" style="float:left; width:auto; padding:2px 8px; background:red; margin:0;">حذف</button>
+                        <br>التكلفة: ${m.cost}
+                    </div>`;
+                matTotalCost += m.cost;
             });
 
-            reportHTML += "<hr>";
-            reportHTML += `<h4 style="color:blue;">💰 التكلفة الكلية للورشة اليوم: ${totalWorkersCost + totalMaterialsCost}</h4>`;
-            
-            document.getElementById("reportArea").innerHTML = reportHTML;
+            html += `<hr>
+                     <h4>💵 الدفعات النقدية اليوم: ${dayTotalPaid}</h4>
+                     <h4>💰 إجمالي التكلفة اليوم (عمال + مواد): ${dayTotalCost + matTotalCost}</h4>`;
+            document.getElementById("dailyReport").innerHTML = html;
         }
 
         function shareWhatsApp() {
-            if (workers.length === 0 && materials.length === 0) {
-                alert("لا توجد بيانات لمشاركتها!");
-                return;
-            }
+            let date = document.getElementById("currentDate").value;
+            let data = allData[date];
+            if (data.workers.length === 0 && data.materials.length === 0) { alert("لا توجد بيانات!"); return; }
 
-            let text = "📊 *تقرير الورشة اليومي* - " + new Date().toLocaleDateString('ar-EG') + "%0A%0A";
+            let text = `📊 *تقرير يومية الورشة* - ${date}%0A`;
+            if(data.note) text += `📌 *ملاحظة:* ${data.note}%0A%0A`;
+            
             text += "👷 *العمال:*%0A";
-            let totalWorkers = 0;
-            workers.forEach(w => {
-                text += `- ${w.name}: اشتغل ${w.hours} ساعات | أجرته: ${w.total} | الدفعة: ${w.paid} | الباقي له: ${w.debt}%0A`;
-                totalWorkers += w.total;
+            data.workers.forEach(w => { 
+                let phoneInfo = w.phone ? ` (${w.phone})` : '';
+                text += `- ${w.name}${phoneInfo}: ${w.hours} ساعات | الدفعة: ${w.paid} | الباقي ديون: ${w.debt}%0A`; 
             });
 
-            text += "%0A🧱 *المواد والمصاريف:*%0A";
-            let totalMat = 0;
-            materials.forEach(m => {
-                text += `- ${m.name}: ${m.cost}%0A`;
-                totalMat += m.cost;
-            });
+            text += "%0A🧱 *المواد:*%0A";
+            data.materials.forEach(m => { text += `- ${m.name}: ${m.cost}%0A`; });
 
-            text += "%0A💰 *الإجمالي الكلي للورشة اليوم:* " + (totalWorkers + totalMat);
-
-            // فتح الواتساب مع النص المجهز
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
 
-        function clearData() {
-            if(confirm("هل أنت متأكد أنك تريد مسح بيانات اليوم للبدء بيوم جديد؟ (لا يمكن التراجع)")) {
-                localStorage.removeItem('workers');
-                localStorage.removeItem('materials');
-                workers = [];
-                materials = [];
-                generateReport();
-                alert("تم مسح البيانات بنجاح، يمكنك بدء يوم عمل جديد!");
+        function calculatePeriod() {
+            let start = document.getElementById("startDate").value;
+            let end = document.getElementById("endDate").value;
+            if(!start || !end) { alert("حدد تاريخ البداية والنهاية!"); return; }
+
+            let totalWorkersPaid = 0; let totalWorkersCost = 0; let totalMatCost = 0;
+            let specialDaysHTML = "<ul>";
+
+            for (let date in allData) {
+                if (date >= start && date <= end) {
+                    let dayNote = allData[date].note;
+                    if(dayNote) specialDaysHTML += `<li>${date}: <b>${dayNote}</b></li>`;
+                    allData[date].workers.forEach(w => { totalWorkersPaid += w.paid; totalWorkersCost += w.total; });
+                    if(allData[date].materials) { allData[date].materials.forEach(m => { totalMatCost += m.cost; }); }
+                }
             }
+            specialDaysHTML += "</ul>";
+
+            let resHTML = `
+                <h4>📈 تقرير الجرد للفترة المحددة:</h4>
+                <p>💸 مجموع النقد اللي اندفع للعمال: <b>${totalWorkersPaid}</b></p>
+                <p>🧱 مجموع مصاريف المواد: <b>${totalMatCost}</b></p>
+                <p>🚨 الديون المتبقية للعمال: <b style="color:red">${totalWorkersCost - totalWorkersPaid}</b></p>
+                <hr>
+                <h4 style="color:blue;">💰 التكلفة الكلية للورشة (مواد + أجور): ${totalWorkersCost + totalMatCost}</h4>
+            `;
+            if(specialDaysHTML !== "<ul></ul>") { resHTML += `<hr><h5>🗓️ أيام مميزة:</h5>${specialDaysHTML}`; }
+
+            let box = document.getElementById("periodReport");
+            box.style.display = "block";
+            box.innerHTML = resHTML;
         }
 
-        // عرض التقرير التلقائي عند فتح التطبيق
-        window.onload = generateReport;
+        function exportToExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            csvContent += "التاريخ,النوع,الاسم/الوصف,رقم الهاتف,ساعات العمل,التكلفة,المدفوع,الديون المتبقية\n";
+            
+            for (let date in allData) {
+                let d = allData[date];
+                if(d.note) csvContent += `${date},ملاحظة يوم,${d.note},,,,,\n`;
+                d.workers.forEach(w => {
+                    let phoneStr = w.phone || "";
+                    csvContent += `${date},عامل,${w.name},${phoneStr},${w.hours},${w.total},${w.paid},${w.debt}\n`;
+                });
+                if(d.materials) {
+                    d.materials.forEach(m => {
+                        csvContent += `${date},مادة/مصروف,${m.name},,,${m.cost},,\n`;
+                    });
+                }
+            }
+            
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "workshop_backup.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function saveData() { localStorage.setItem('workshopDiary', JSON.stringify(allData)); }
+        
+        window.onload = function() {
+            loadDayData();
+            updateWorkerList(); // تجهيز الذاكرة أول ما يفتح التطبيق
+        };
     </script>
 </body>
 </html>
