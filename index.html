@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الورشة الذكية</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
+        h2 { text-align: center; color: #333; }
+        .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button.save-btn { background-color: #28a745; }
+        button.clear-btn { background-color: #dc3545; margin-top: 15px; }
+        button.whatsapp-btn { background-color: #25d366; margin-top: 10px; }
+        .report-box { background: #e9ecef; padding: 10px; border-radius: 6px; margin-top: 10px; line-height: 1.6; }
+        hr { border: 1px solid #ddd; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+    <h2>🏗️ إدارة الورشة</h2>
+    <p style="text-align:center; font-weight:bold; color:#555;" id="currentDate"></p>
+
+    <div class="card">
+        <h3>👷 إضافة عامل</h3>
+        <input type="text" id="workerName" placeholder="اسم العامل">
+        <input type="number" id="workerHours" placeholder="عدد الساعات (مثال: 8)">
+        <input type="number" id="hourlyRate" placeholder="سعر الساعة">
+        <input type="number" id="paidAmount" placeholder="المبلغ اللي دفعته له اليوم">
+        <button onclick="addWorker()">➕ إضافة العامل</button>
+    </div>
+
+    <div class="card">
+        <h3>🧱 مصاريف المواد والمكائن</h3>
+        <input type="text" id="materialName" placeholder="اسم المادة أو الماكينة">
+        <input type="number" id="materialCost" placeholder="التكلفة">
+        <button onclick="addMaterial()" style="background-color: #ffc107; color: black;">➕ إضافة التكلفة</button>
+    </div>
+
+    <div class="card">
+        <h3>📊 ملخص اليوم</h3>
+        <button class="save-btn" onclick="generateReport()">🔄 تحديث وعرض التقرير</button>
+        <div id="reportArea" class="report-box">
+            <i>اضغط على "تحديث وعرض التقرير" لرؤية الحسابات...</i>
+        </div>
+        
+        <button class="whatsapp-btn" onclick="shareWhatsApp()">📲 إرسال التقرير عبر واتساب</button>
+        <button class="clear-btn" onclick="clearData()">🗑️ إنهاء اليوم ومسح البيانات</button>
+    </div>
+
+    <script>
+        // إظهار تاريخ اليوم
+        document.getElementById("currentDate").innerText = "تاريخ اليوم: " + new Date().toLocaleDateString('ar-EG');
+
+        // جلب البيانات المحفوظة في الهاتف أو إنشاء قوائم فارغة
+        let workers = JSON.parse(localStorage.getItem('workers')) || [];
+        let materials = JSON.parse(localStorage.getItem('materials')) || [];
+
+        function addWorker() {
+            let name = document.getElementById("workerName").value;
+            let hours = parseFloat(document.getElementById("workerHours").value) || 0;
+            let rate = parseFloat(document.getElementById("hourlyRate").value) || 0;
+            let paid = parseFloat(document.getElementById("paidAmount").value) || 0;
+
+            if(name.trim() === "") { alert("الرجاء إدخال اسم العامل"); return; }
+
+            let total = hours * rate;
+            let debt = total - paid;
+
+            workers.push({ name, hours, total, paid, debt });
+            localStorage.setItem('workers', JSON.stringify(workers));
+            
+            alert("تم إضافة العامل بنجاح!");
+            // تفريغ الخانات بعد الإضافة
+            document.getElementById("workerName").value = "";
+            document.getElementById("workerHours").value = "";
+            document.getElementById("hourlyRate").value = "";
+            document.getElementById("paidAmount").value = "";
+            generateReport(); // تحديث التقرير تلقائياً
+        }
+
+        function addMaterial() {
+            let name = document.getElementById("materialName").value;
+            let cost = parseFloat(document.getElementById("materialCost").value) || 0;
+
+            if(name.trim() === "") { alert("الرجاء إدخال اسم المادة"); return; }
+
+            materials.push({ name, cost });
+            localStorage.setItem('materials', JSON.stringify(materials));
+
+            alert("تم إضافة المصروف بنجاح!");
+            document.getElementById("materialName").value = "";
+            document.getElementById("materialCost").value = "";
+            generateReport(); // تحديث التقرير تلقائياً
+        }
+
+        function generateReport() {
+            let reportHTML = "<h4>العمال:</h4>";
+            let totalWorkersCost = 0;
+            
+            if (workers.length === 0) { reportHTML += "<p>لا يوجد عمال مسجلين اليوم.</p>"; }
+            
+            workers.forEach((w, index) => {
+                reportHTML += `<p><b>${index + 1}. ${w.name}</b>: اشتغل ${w.hours} ساعات | أجرته: ${w.total} | اندفعله: ${w.paid} | <b>الباقي له: <span style="color:red">${w.debt}</span></b></p>`;
+                totalWorkersCost += w.total;
+            });
+
+            reportHTML += "<hr><h4>المواد والمصاريف الأخرى:</h4>";
+            let totalMaterialsCost = 0;
+            
+            if (materials.length === 0) { reportHTML += "<p>لا يوجد مواد مسجلة اليوم.</p>"; }
+
+            materials.forEach((m, index) => {
+                reportHTML += `<p><b>${index + 1}. ${m.name}</b>: التكلفة ${m.cost}</p>`;
+                totalMaterialsCost += m.cost;
+            });
+
+            reportHTML += "<hr>";
+            reportHTML += `<h4 style="color:blue;">💰 التكلفة الكلية للورشة اليوم: ${totalWorkersCost + totalMaterialsCost}</h4>`;
+            
+            document.getElementById("reportArea").innerHTML = reportHTML;
+        }
+
+        function shareWhatsApp() {
+            if (workers.length === 0 && materials.length === 0) {
+                alert("لا توجد بيانات لمشاركتها!");
+                return;
+            }
+
+            let text = "📊 *تقرير الورشة اليومي* - " + new Date().toLocaleDateString('ar-EG') + "%0A%0A";
+            text += "👷 *العمال:*%0A";
+            let totalWorkers = 0;
+            workers.forEach(w => {
+                text += `- ${w.name}: اشتغل ${w.hours} ساعات | أجرته: ${w.total} | الدفعة: ${w.paid} | الباقي له: ${w.debt}%0A`;
+                totalWorkers += w.total;
+            });
+
+            text += "%0A🧱 *المواد والمصاريف:*%0A";
+            let totalMat = 0;
+            materials.forEach(m => {
+                text += `- ${m.name}: ${m.cost}%0A`;
+                totalMat += m.cost;
+            });
+
+            text += "%0A💰 *الإجمالي الكلي للورشة اليوم:* " + (totalWorkers + totalMat);
+
+            // فتح الواتساب مع النص المجهز
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        function clearData() {
+            if(confirm("هل أنت متأكد أنك تريد مسح بيانات اليوم للبدء بيوم جديد؟ (لا يمكن التراجع)")) {
+                localStorage.removeItem('workers');
+                localStorage.removeItem('materials');
+                workers = [];
+                materials = [];
+                generateReport();
+                alert("تم مسح البيانات بنجاح، يمكنك بدء يوم عمل جديد!");
+            }
+        }
+
+        // عرض التقرير التلقائي عند فتح التطبيق
+        window.onload = generateReport;
+    </script>
+</body>
+</html>
