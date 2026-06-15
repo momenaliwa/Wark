@@ -33,12 +33,14 @@
 
     <h2>🏗️ يومية الورشة</h2>
 
+    <!-- اختيار اليوم ووصفه -->
     <div class="card">
         <h3>📅 اختر اليوم</h3>
         <input type="date" id="currentDate" class="date-picker" onchange="loadDayData()">
         <input type="text" id="dayNote" class="special-day" placeholder="وصف اليوم (مثال: صبة باطون...)" onchange="saveDayNote()">
     </div>
 
+    <!-- قسم العمال -->
     <div class="card" id="workerSection">
         <h3>👷 إضافة عامل أو سلفة</h3>
         <input type="text" id="workerName" list="workerList" placeholder="اسم العامل" oninput="autofillWorker()">
@@ -59,6 +61,7 @@
         <button onclick="addWorker()">➕ إضافة لليومية</button>
     </div>
 
+    <!-- قسم المواد -->
     <div class="card" id="materialSection">
         <h3>🧱 مواد ومصاريف اليوم</h3>
         <input type="text" id="materialName" placeholder="اسم المادة (مثال: باطون، رمل، ديزل)">
@@ -66,6 +69,7 @@
         <button onclick="addMaterial()" style="background-color: #ffc107; color: black;">➕ إضافة مصروف</button>
     </div>
 
+    <!-- تقرير اليوم -->
     <div class="card">
         <h3>📊 ملخص اليوم المحدد</h3>
         <div id="dailyReport" class="report-box">
@@ -74,12 +78,14 @@
         <button class="whatsapp-btn" onclick="shareWhatsApp()">📲 إرسال تقرير اليوم (واتساب)</button>
     </div>
 
+    <!-- دفتر الديون الشامل -->
     <div class="card" style="border: 2px solid #dc3545;">
         <h3 style="color: #dc3545;">📒 دفتر ديون العمال (الحساب الختامي)</h3>
         <button style="background-color: #dc3545;" onclick="showDebts()">👁️ عرض الحساب الشامل لكل العمال</button>
         <div id="debtReport" class="report-box" style="display: none; background-color: #f8d7da;"></div>
     </div>
 
+    <!-- حساب فترة محددة والنسخ الاحتياطي -->
     <div class="card" style="border: 2px solid #28a745;">
         <h3>💰 جرد فترة والنسخ الاحتياطي</h3>
         <div class="time-row">
@@ -99,6 +105,28 @@
     </div>
 
     <script>
+        // 1. جلب البيانات القديمة
+        let allData = JSON.parse(localStorage.getItem('workshopDiary')) || {};
+        let savedWorkersProfiles = JSON.parse(localStorage.getItem('savedWorkersProfiles')) || {}; 
+
+        // 2. دالة تنظيف وتصليح البيانات القديمة (هذا هو الحل الجذري للمشكلة)
+        function sanitizeData() {
+            let changed = false;
+            for (let d in allData) {
+                if (typeof allData[d] !== "object" || allData[d] === null) {
+                    allData[d] = { note: "", workers: [], materials: [] };
+                    changed = true;
+                } else {
+                    if (!Array.isArray(allData[d].workers)) { allData[d].workers = []; changed = true; }
+                    if (!Array.isArray(allData[d].materials)) { allData[d].materials = []; changed = true; }
+                    if (typeof allData[d].note !== "string") { allData[d].note = ""; changed = true; }
+                }
+            }
+            if (changed) { saveData(); }
+        }
+        // تشغيل التنظيف فوراً
+        sanitizeData();
+
         function getTodayString() {
             let today = new Date();
             let dd = String(today.getDate()).padStart(2, '0');
@@ -108,9 +136,6 @@
         }
 
         document.getElementById("currentDate").value = getTodayString();
-        
-        let allData = JSON.parse(localStorage.getItem('workshopDiary')) || {};
-        let savedWorkersProfiles = JSON.parse(localStorage.getItem('savedWorkersProfiles')) || {}; 
 
         function updateWorkerList() {
             let dataList = document.getElementById("workerList");
@@ -130,80 +155,98 @@
             }
         }
 
-        function loadDayData() {
+        // دالة آمنة للتأكد إن اليوم جاهز قبل ما نضيف عليه إشي
+        function getSafeDate() {
             let date = document.getElementById("currentDate").value;
-            if (!allData[date]) {
-                allData[date] = { note: "", workers: [], materials: [] }; 
+            if(!date) {
+                date = getTodayString();
+                document.getElementById("currentDate").value = date;
             }
-            if (!allData[date].materials) allData[date].materials = [];
-            
-            document.getElementById("dayNote").value = allData[date].note;
+            if(!allData[date]) allData[date] = { note: "", workers: [], materials: [] };
+            if(!Array.isArray(allData[date].workers)) allData[date].workers = [];
+            if(!Array.isArray(allData[date].materials)) allData[date].materials = [];
+            return date;
+        }
+
+        function loadDayData() {
+            let date = getSafeDate();
+            document.getElementById("dayNote").value = allData[date].note || "";
             renderDailyReport();
         }
 
         function saveDayNote() {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
             allData[date].note = document.getElementById("dayNote").value;
             saveData();
         }
 
+        // طريقة حساب الساعات الجديدة والمحمية
         function calculateHours(start, end, isHafsaka) {
             if(!start || !end) return 0;
-            let startDate = new Date(`2000-01-01T${start}`);
-            let endDate = new Date(`2000-01-01T${end}`);
-            let diff = (endDate - startDate) / (1000 * 60 * 60);
-            if(diff < 0) diff += 24; 
-            if(isHafsaka) diff -= 0.5; 
-            return diff > 0 ? diff.toFixed(2) : 0;
+            try {
+                let [h1, m1] = start.split(':').map(Number);
+                let [h2, m2] = end.split(':').map(Number);
+                let diff = (h2 + (m2/60)) - (h1 + (m1/60));
+                if(diff < 0) diff += 24; 
+                if(isHafsaka) diff -= 0.5; 
+                return diff > 0 ? parseFloat(diff.toFixed(2)) : 0;
+            } catch(e) {
+                return 0;
+            }
         }
 
         function getWorkerBalance(name) {
             let totalEarned = 0;
             let totalPaid = 0;
             for(let date in allData) {
-                allData[date].workers.forEach(w => {
-                    if(w.name === name) {
-                        totalEarned += w.total;
-                        totalPaid += w.paid;
-                    }
-                });
+                if(allData[date] && Array.isArray(allData[date].workers)) {
+                    allData[date].workers.forEach(w => {
+                        if(w.name === name) {
+                            totalEarned += w.total;
+                            totalPaid += w.paid;
+                        }
+                    });
+                }
             }
             return totalEarned - totalPaid;
         }
 
         function addWorker() {
-            let date = document.getElementById("currentDate").value;
-            let name = document.getElementById("workerName").value;
-            let phone = document.getElementById("workerPhone").value;
-            let start = document.getElementById("startTime").value;
-            let end = document.getElementById("endTime").value;
-            let hasHafsaka = document.getElementById("hafsaka").checked;
-            let rate = parseFloat(document.getElementById("hourlyRate").value) || 0;
-            let paid = parseFloat(document.getElementById("paidAmount").value) || 0;
+            try {
+                let date = getSafeDate();
+                let name = document.getElementById("workerName").value;
+                let phone = document.getElementById("workerPhone").value;
+                let start = document.getElementById("startTime").value;
+                let end = document.getElementById("endTime").value;
+                let hasHafsaka = document.getElementById("hafsaka").checked;
+                let rate = parseFloat(document.getElementById("hourlyRate").value) || 0;
+                let paid = parseFloat(document.getElementById("paidAmount").value) || 0;
 
-            if(name.trim() === "") { alert("الرجاء إدخال اسم العامل"); return; }
+                if(name.trim() === "") { alert("الرجاء إدخال اسم العامل"); return; }
 
-            // التحذير من التكرار
-            let isDuplicate = allData[date].workers.some(w => w.name === name);
-            if (isDuplicate) {
-                if(!confirm(`⚠️ العامل "${name}" مسجل اليوم بالفعل!\n\nهل أنت متأكد أنك تريد إضافته مرة أخرى (كشفت إضافي أو سلفة)؟`)) {
-                    return; // التراجع إذا اختار "إلغاء"
+                let isDuplicate = allData[date].workers.some(w => w.name === name);
+                if (isDuplicate) {
+                    if(!confirm(`⚠️ العامل "${name}" مسجل اليوم بالفعل!\n\nمتأكد بدك تضيفه كمان مرة؟`)) {
+                        return; 
+                    }
                 }
+
+                let hours = calculateHours(start, end, hasHafsaka);
+                let total = parseFloat((hours * rate).toFixed(2));
+                let debt = total - paid; 
+
+                allData[date].workers.push({ name, phone, start, end, hasHafsaka, hours, rate, total, paid, debt });
+                saveData();
+
+                savedWorkersProfiles[name] = { rate: rate, phone: phone };
+                localStorage.setItem('savedWorkersProfiles', JSON.stringify(savedWorkersProfiles));
+                updateWorkerList();
+                
+                clearWorkerInputs();
+                renderDailyReport();
+            } catch (err) {
+                alert("حدث خطأ أثناء الإضافة: " + err.message);
             }
-
-            let hours = calculateHours(start, end, hasHafsaka);
-            let total = hours * rate;
-            let debt = total - paid; 
-
-            allData[date].workers.push({ name, phone, start, end, hasHafsaka, hours, rate, total, paid, debt });
-            saveData();
-
-            savedWorkersProfiles[name] = { rate: rate, phone: phone };
-            localStorage.setItem('savedWorkersProfiles', JSON.stringify(savedWorkersProfiles));
-            updateWorkerList();
-            
-            clearWorkerInputs();
-            renderDailyReport();
         }
 
         function clearWorkerInputs() {
@@ -217,7 +260,7 @@
         }
 
         function addMaterial() {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
             let name = document.getElementById("materialName").value;
             let cost = parseFloat(document.getElementById("materialCost").value) || 0;
 
@@ -233,7 +276,9 @@
         }
 
         function deleteItem(type, index) {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
+            if(!allData[date][type] || !allData[date][type][index]) return;
+            
             if(confirm("متأكد بدك تحذف هذا العنصر؟")) {
                 allData[date][type].splice(index, 1);
                 saveData();
@@ -241,9 +286,10 @@
             }
         }
 
-        // ميزة التعديل السريع
         function editItem(type, index) {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
+            if(!allData[date][type] || !allData[date][type][index]) return;
+            
             let item = allData[date][type][index];
 
             if(type === 'workers') {
@@ -254,23 +300,19 @@
                 document.getElementById("hafsaka").checked = item.hasHafsaka;
                 document.getElementById("hourlyRate").value = item.rate;
                 document.getElementById("paidAmount").value = item.paid;
-                
-                // التوجيه للقسم
-                document.getElementById("workerSection").scrollIntoView({behavior: "smooth"});
             } else {
                 document.getElementById("materialName").value = item.name;
                 document.getElementById("materialCost").value = item.cost;
-                document.getElementById("materialSection").scrollIntoView({behavior: "smooth"});
             }
 
-            // حذف القديم حتى يتم حفظ الجديد
             allData[date][type].splice(index, 1);
             saveData();
             renderDailyReport();
+            window.scrollTo(0, 0); 
         }
 
         function renderDailyReport() {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
             let workers = allData[date].workers;
             let materials = allData[date].materials;
             let note = allData[date].note;
@@ -325,11 +367,13 @@
         function showDebts() {
             let balances = {};
             for(let date in allData) {
-                allData[date].workers.forEach(w => {
-                    if(!balances[w.name]) { balances[w.name] = { total:0, paid:0 }; }
-                    balances[w.name].total += w.total;
-                    balances[w.name].paid += w.paid;
-                });
+                if(allData[date] && Array.isArray(allData[date].workers)) {
+                    allData[date].workers.forEach(w => {
+                        if(!balances[w.name]) { balances[w.name] = { total:0, paid:0 }; }
+                        balances[w.name].total += w.total;
+                        balances[w.name].paid += w.paid;
+                    });
+                }
             }
             let html = "<h4>تفصيل حسابات العمال من أول يوم لليوم:</h4>";
             let hasData = false;
@@ -353,9 +397,9 @@
         }
 
         function shareWhatsApp() {
-            let date = document.getElementById("currentDate").value;
+            let date = getSafeDate();
             let data = allData[date];
-            if (data.workers.length === 0 && data.materials.length === 0) { alert("لا توجد بيانات!"); return; }
+            if (data.workers.length === 0 && data.materials.length === 0) { alert("لا توجد بيانات لمشاركتها!"); return; }
 
             let text = `📊 *تقرير يومية الورشة* - ${date}%0A`;
             if(data.note) text += `📌 *ملاحظة:* ${data.note}%0A%0A`;
@@ -382,10 +426,16 @@
 
             for (let date in allData) {
                 if (date >= start && date <= end) {
-                    let dayNote = allData[date].note;
-                    if(dayNote) specialDaysHTML += `<li>${date}: <b>${dayNote}</b></li>`;
-                    allData[date].workers.forEach(w => { totalWorkersPaid += w.paid; totalWorkersCost += w.total; });
-                    if(allData[date].materials) { allData[date].materials.forEach(m => { totalMatCost += m.cost; }); }
+                    if(allData[date]) {
+                        let dayNote = allData[date].note;
+                        if(dayNote) specialDaysHTML += `<li>${date}: <b>${dayNote}</b></li>`;
+                        if(Array.isArray(allData[date].workers)) {
+                            allData[date].workers.forEach(w => { totalWorkersPaid += w.paid; totalWorkersCost += w.total; });
+                        }
+                        if(Array.isArray(allData[date].materials)) {
+                            allData[date].materials.forEach(m => { totalMatCost += m.cost; });
+                        }
+                    }
                 }
             }
             specialDaysHTML += "</ul>";
@@ -410,16 +460,20 @@
             csvContent += "التاريخ,النوع,الاسم/الوصف,رقم الهاتف,ساعات العمل,التكلفة اليومية,المدفوع اليوم,ديون اليوم فقط\n";
             
             for (let date in allData) {
-                let d = allData[date];
-                if(d.note) csvContent += `${date},ملاحظة يوم,${d.note},,,,,\n`;
-                d.workers.forEach(w => {
-                    let phoneStr = w.phone || "";
-                    csvContent += `${date},عامل,${w.name},${phoneStr},${w.hours},${w.total},${w.paid},${w.debt}\n`;
-                });
-                if(d.materials) {
-                    d.materials.forEach(m => {
-                        csvContent += `${date},مادة/مصروف,${m.name},,,${m.cost},,\n`;
-                    });
+                if(allData[date]) {
+                    let d = allData[date];
+                    if(d.note) csvContent += `${date},ملاحظة يوم,${d.note},,,,,\n`;
+                    if(Array.isArray(d.workers)) {
+                        d.workers.forEach(w => {
+                            let phoneStr = w.phone || "";
+                            csvContent += `${date},عامل,${w.name},${phoneStr},${w.hours},${w.total},${w.paid},${w.debt}\n`;
+                        });
+                    }
+                    if(Array.isArray(d.materials)) {
+                        d.materials.forEach(m => {
+                            csvContent += `${date},مادة/مصروف,${m.name},,,${m.cost},,\n`;
+                        });
+                    }
                 }
             }
             
@@ -431,5 +485,52 @@
             link.click();
         }
 
-        // --- دوال النسخ الاحتياطي (جديدة) ---
-        function
+        function backupDatabase() {
+            let fullBackup = {
+                diary: allData,
+                profiles: savedWorkersProfiles
+            };
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup));
+            let dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "workshop_database_backup.json");
+            document.body.appendChild(dlAnchorElem);
+            dlAnchorElem.click();
+            dlAnchorElem.remove();
+        }
+
+        function restoreDatabase(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let contents = JSON.parse(e.target.result);
+                    if (contents.diary && contents.profiles) {
+                        localStorage.setItem('workshopDiary', JSON.stringify(contents.diary));
+                        localStorage.setItem('savedWorkersProfiles', JSON.stringify(contents.profiles));
+                        allData = contents.diary;
+                        savedWorkersProfiles = contents.profiles;
+                        sanitizeData(); // تنظيف إضافي لضمان سلامة الملف المرفوع
+                        updateWorkerList();
+                        loadDayData();
+                        alert("✅ تم استرجاع البيانات بنجاح!");
+                    } else {
+                        alert("❌ ملف النسخة الاحتياطية غير صحيح.");
+                    }
+                } catch(err) {
+                    alert("❌ حدث خطأ أثناء قراءة الملف.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function saveData() { localStorage.setItem('workshopDiary', JSON.stringify(allData)); }
+        
+        window.onload = function() {
+            loadDayData();
+            updateWorkerList(); 
+        };
+    </script>
+</body>
+</html>
